@@ -90,7 +90,8 @@ void putterMonkey(MonkeyHashMap<string,int> *hm, int me) {
 void getterMonkey(MonkeyHashMap<string,int> *hm, int me) {
 
 	for (int i = 0; i < 1000; i++) {
-		hm->iterateThroughEntries();
+		MonkeyHashMap<string,int>::Iterator *it = new MonkeyHashMap<string,int>::Iterator(*hm);
+		for(; it->hasNext(); it->next());
 	}
 }
 

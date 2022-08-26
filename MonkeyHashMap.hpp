@@ -6,16 +6,15 @@
 
 #include <random>
 #include <functional>
-#include <list>
-#include "MonkeyHashMapEntry.hpp"
 
 template <class K, class V>
 class MonkeyHashMap
 {
-private:
+	private:
 	std::random_device random;
 
-	MonkeyHashMapEntry<K,V> **entries;
+	class MonkeyHashMapEntry;
+	MonkeyHashMapEntry **entries;
 	int maxCapacity;
 	int size;
 	int arrayLength;
@@ -26,14 +25,25 @@ private:
 
 	std::function<K(V)> valueToKeyFunction;
 
-	MonkeyHashMapEntry<K,V>* getEntry(K key, bool upsertIntended);
-	void removeEntry(MonkeyHashMapEntry<K,V>*);
+	MonkeyHashMapEntry* getEntry(K key, bool upsertIntended);
+	void removeEntry(MonkeyHashMapEntry*);
 	bool validateMapping(K key, V value);
 	static int getNextPowerOfTwo(int value);
-	void addContributionToNumberOfHashesUsed(MonkeyHashMapEntry<K,V>*);
-	void removeContributionToNumberOfHashesUsed(MonkeyHashMapEntry<K,V>*);
+	void addContributionToNumberOfHashesUsed(MonkeyHashMapEntry*);
+	void removeContributionToNumberOfHashesUsed(MonkeyHashMapEntry*);
 
-public:
+	class MonkeyHashMapEntry
+	{
+		public:
+		K key;
+		V value;
+		int numberOfHashesUsed;
+		int positionInArray;
+
+		MonkeyHashMapEntry(K key, V value, int positionInArray);
+	};
+
+	public:
 	MonkeyHashMap(int maxCapacity);
 	MonkeyHashMap(int maxCapacity, float loadFactor);
 	MonkeyHashMap(int maxCapacity, K valueToKeyFunction(V));
@@ -48,10 +58,23 @@ public:
 	V remove(K);
 	void clear();
 	int getHashesInUse();
-	void iterateThroughEntries();
 
 	void print();
 	~MonkeyHashMap();
+
+	class Iterator
+	{
+		private:
+		int i;
+		int arrayLength;
+		MonkeyHashMapEntry **entries;
+		MonkeyHashMap &parent;
+
+		public:
+		Iterator(MonkeyHashMap &x);
+		bool hasNext();
+		K next();
+	};
 };
 
 #endif

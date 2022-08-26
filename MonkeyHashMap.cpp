@@ -24,7 +24,7 @@ MonkeyHashMap<K,V>::MonkeyHashMap(int maxCapacity, float loadFactor, K valueToKe
 	this->maxCapacity = maxCapacity;
 	this->arrayLength = getNextPowerOfTwo(1 + (int)ceil(maxCapacity/loadFactor));
 	this->bitMaskForSmartMod = this->arrayLength - 1;
-	this->entries = new MonkeyHashMapEntry<K,V>* [this->arrayLength];
+	this->entries = new MonkeyHashMapEntry* [this->arrayLength];
 	for(int i = 0; i < this->arrayLength; i++) this->entries[i] = NULL;
 	this->maxHashes = maxHashes;
 	this->size = 0;
@@ -54,11 +54,11 @@ bool MonkeyHashMap<K,V>::containsKey(K key)
 template <class K, class V>
 bool MonkeyHashMap<K,V>::containsValue(V value)
 {
-	MonkeyHashMapEntry<K,V> *entry;
+	MonkeyHashMapEntry *entry;
 	for(int i = 0; i < arrayLength; i++)
 	{
 		entry = entries[i];
-		if(entry != NULL && entry->getValue() == value) return true;
+		if(entry != NULL && entry->value == value) return true;
 	}
 	return false;
 }
@@ -66,9 +66,9 @@ bool MonkeyHashMap<K,V>::containsValue(V value)
 template <class K, class V>
 V MonkeyHashMap<K,V>::get(K key)
 {
-	MonkeyHashMapEntry<K,V> *entry = getEntry(key, false);
+	MonkeyHashMapEntry *entry = getEntry(key, false);
 	if(entry == NULL) return -1;
-	V value = entry->getValue();
+	V value = entry->value;
 	if (!validateMapping(key, value)) return -1;
 	return value;
 }
@@ -83,27 +83,27 @@ bool MonkeyHashMap<K,V>::validateMapping(K key, V value)
 template <class K, class V>
 V MonkeyHashMap<K,V>::put(K key, V value)
 {
-	MonkeyHashMapEntry<K,V> *entry = getEntry(key, true);
+	MonkeyHashMapEntry *entry = getEntry(key, true);
 	if(entry == NULL) throw std::invalid_argument("Put operation failed.");
-	K newEntryKey = entry->getKey();
+	K newEntryKey = entry->key;
 	if(newEntryKey == "")
 	{
 		if(size == maxCapacity) throw std::invalid_argument("The maximum capacity has been reached.");
 		size++;
-		entry->setKey(key);
+		entry->key = key;
 	}
-	V oldValue = entry->getValue();
-	entry->setValue(value);
+	V oldValue = entry->value;
+	entry->value = value;
 	return oldValue;
 }
 
 template <class K, class V>
 V MonkeyHashMap<K,V>::remove(K key)
 {
-	MonkeyHashMapEntry<K,V> *entry = getEntry(key, false);
+	MonkeyHashMapEntry *entry = getEntry(key, false);
 	if(entry != NULL)
 	{
-		V value = entry->getValue();
+		V value = entry->value;
 		removeEntry(entry);
 		return value;
 	}
@@ -130,14 +130,7 @@ int MonkeyHashMap<K,V>::getHashesInUse()
 }
 
 template <class K, class V>
-void MonkeyHashMap<K,V>::iterateThroughEntries()
-{
-	for(int i = 0; i < arrayLength; i++)
-		if(entries[i] != NULL){}
-}
-
-template <class K, class V>
-MonkeyHashMapEntry<K,V>* MonkeyHashMap<K,V>::getEntry(K key, bool upsertIntended)
+typename MonkeyHashMap<K,V>::MonkeyHashMapEntry* MonkeyHashMap<K,V>::getEntry(K key, bool upsertIntended)
 {
 	int firstAvailablePosition = -1;
 	int hashNumberUsedForFirstAvailablePosition = 0;
@@ -149,11 +142,11 @@ MonkeyHashMapEntry<K,V>* MonkeyHashMap<K,V>::getEntry(K key, bool upsertIntended
 		boost::hash_combine(hash, hashNumber);
 		boost::hash_combine(hash, key);
 		hash = hash & bitMaskForSmartMod;
-		MonkeyHashMapEntry<K,V> *entry = entries[hash];
-		if(entry != NULL && entry->getKey() == key) return entry;
+		MonkeyHashMapEntry *entry = entries[hash];
+		if(entry != NULL && entry->key == key) return entry;
 		if(upsertIntended)
 		{
-			if(firstAvailablePosition == -1 && (entry == NULL || entry->getKey() == ""))
+			if(firstAvailablePosition == -1 && (entry == NULL || entry->key == ""))
 			{
 				firstAvailablePosition = hash;
 				hashNumberUsedForFirstAvailablePosition = hashNumber;
@@ -163,47 +156,47 @@ MonkeyHashMapEntry<K,V>* MonkeyHashMap<K,V>::getEntry(K key, bool upsertIntended
 	}
 	if(!upsertIntended) return NULL;
 	if(firstAvailablePosition == -1) return NULL;
-	MonkeyHashMapEntry<K,V> *availableEntry = entries[firstAvailablePosition];
+	MonkeyHashMapEntry *availableEntry = entries[firstAvailablePosition];
 	if(availableEntry == NULL)
 	{
-		availableEntry = new MonkeyHashMapEntry<K,V>("", -1, firstAvailablePosition);
+		availableEntry = new MonkeyHashMapEntry("", -1, firstAvailablePosition);
 		entries[firstAvailablePosition] = availableEntry;
 	}
-	availableEntry->setNumberOfHashesUsed(hashNumberUsedForFirstAvailablePosition);
+	availableEntry->numberOfHashesUsed = hashNumberUsedForFirstAvailablePosition;
 	addContributionToNumberOfHashesUsed(availableEntry);
 	return availableEntry;
 }
 
 template <class K, class V>
-void MonkeyHashMap<K,V>::removeEntry(MonkeyHashMapEntry<K,V> *entry)
+void MonkeyHashMap<K,V>::removeEntry(MonkeyHashMapEntry *entry)
 {
 	removeContributionToNumberOfHashesUsed(entry);
 	if(valueToKeyFunction != NULL)
 	{
-		entry->setKey("");
-		entry->setNumberOfHashesUsed(0);
-		entry->setValue(-1);
+		entry->key = "";
+		entry->numberOfHashesUsed = 0;
+		entry->value = -1;
 	}
 	else
 	{
-		entries[entry->getPositionInArray()] = NULL;
+		entries[entry->positionInArray] = NULL;
 		delete entry;
 	}
 	size--;
 }
 
 template <class K, class V>
-void MonkeyHashMap<K,V>::addContributionToNumberOfHashesUsed(MonkeyHashMapEntry<K,V> *entry)
+void MonkeyHashMap<K,V>::addContributionToNumberOfHashesUsed(MonkeyHashMapEntry *entry)
 {
-	int numberOfHashesUsed = entry->getNumberOfHashesUsed();
+	int numberOfHashesUsed = entry->numberOfHashesUsed;
 	entryCountByNumberOfHashesUsed[numberOfHashesUsed]++;
 	if (numberOfHashesUsed > hashesInUse) hashesInUse = numberOfHashesUsed;
 }
 
 template <class K, class V>
-void MonkeyHashMap<K,V>::removeContributionToNumberOfHashesUsed(MonkeyHashMapEntry<K,V> *entry)
+void MonkeyHashMap<K,V>::removeContributionToNumberOfHashesUsed(MonkeyHashMapEntry *entry)
 {
-	int numberOfHashesUsed = entry->getNumberOfHashesUsed();
+	int numberOfHashesUsed = entry->numberOfHashesUsed;
 	entryCountByNumberOfHashesUsed[numberOfHashesUsed]--;
 	if(entryCountByNumberOfHashesUsed[numberOfHashesUsed] == 0 && hashesInUse == numberOfHashesUsed)
 	{
@@ -235,7 +228,7 @@ template <class K, class V>
 void MonkeyHashMap<K,V>::print()
 {
 	for(int i = 0; i < arrayLength; i++)
-		if(entries[i] != NULL) cout << entries[i]->getKey() << ": " << entries[i]->getValue() << "\n";
+		if(entries[i] != NULL) cout << entries[i]->key << ": " << entries[i]->value << "\n";
 		else cout << "Null\n";
 	cout << "\nNumber of functions used: " << hashesInUse << "\n";
 }
@@ -248,6 +241,37 @@ MonkeyHashMap<K,V>::~MonkeyHashMap()
 			delete entries[i];
 	delete entries;
 	delete entryCountByNumberOfHashesUsed;
+}
+
+template <class K, class V>
+MonkeyHashMap<K,V>::MonkeyHashMapEntry::MonkeyHashMapEntry(K key, V value, int positionInArray)
+{
+	this->key = key;
+	this->value = value;
+	this->positionInArray = positionInArray;
+}
+
+template <class K, class V>
+MonkeyHashMap<K,V>::Iterator::Iterator(MonkeyHashMap &x) : parent(x)
+{
+	this->i = 0;
+	this->arrayLength = parent.arrayLength;
+	this->entries = parent.entries;
+}
+
+template <class K, class V>
+bool MonkeyHashMap<K,V>::Iterator::hasNext()
+{
+	return i < arrayLength;
+}
+
+template <class K, class V>
+K MonkeyHashMap<K,V>::Iterator::next()
+{
+	for(; i < arrayLength; i++)
+		if(entries[i] != NULL)
+			return entries[i++]->key;
+	return "";
 }
 
 template class MonkeyHashMap<string,int>;
